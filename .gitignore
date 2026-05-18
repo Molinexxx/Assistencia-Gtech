@@ -1,0 +1,5 @@
+backend/target/
+backend/.idea/
+*.iml
+.DS_Store
+Thumbs.db
