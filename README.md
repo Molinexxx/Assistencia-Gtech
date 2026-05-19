@@ -1,71 +1,121 @@
-﻿# Sistema de Assistência Técnica Gtech
+# Sistema de Assistencia Tecnica GTech
 
-Sistema profissional para gestão de assistência técnica de celulares e eletrônicos, desenvolvido para operação real com foco em rastreabilidade, segurança, controle de estoque, ordens de serviço, auditoria e escalabilidade.
+Sistema profissional para gestao de assistencia tecnica de celulares e eletronicos, com backend em Spring Boot, banco MySQL e frontend React voltado para operacao real de balcao, tecnicos e gestao.
 
-## Visão Geral
+## Visao Geral
 
-O projeto foi planejado e estruturado em etapas para garantir evolução consistente entre negócio, banco de dados, backend e futura interface web. A solução utiliza backend em Java com Spring Boot, persistência em MySQL e arquitetura preparada para frontend em React.
+O projeto foi estruturado em fases para evoluir com consistencia entre negocio, banco de dados, backend e interface web. Hoje o repositorio ja contem backend funcional, documentacao consolidada e frontend React implementado com dashboard, autenticacao e abertura de OS em etapas.
 
-## Stack Tecnológica
+## Stack Tecnologica
 
 - Backend: Java 17 + Spring Boot 3.x
-- Segurança: Spring Security + JWT
-- Persistência: Spring Data JPA + Flyway
+- Seguranca: Spring Security + JWT
+- Persistencia: Spring Data JPA + Flyway
 - Banco de dados: MySQL 8.x
-- Build: Maven
-- Frontend planejado: React.js + TailwindCSS
+- Frontend: React 19 + TypeScript + Vite 8
+- UI: TailwindCSS 4 + Lucide React + Recharts
+- Estado e formularios: TanStack Query + React Hook Form + Zod
+- HTTP Client: Axios com interceptor JWT
+- Build backend: Maven
 
-## Estado Atual
+## Estado Atual do Projeto
 
-Atualmente o projeto já possui a fundação técnica da Fase 2 concluída e validada:
+### Backend concluido
 
-- Backend Spring Boot estruturado e funcional
-- Banco MySQL modelado com migration Flyway
-- Autenticação JWT implementada
-- Endpoints principais de clientes, ordens de serviço e estoque
-- Auditoria de operações críticas
-- Criptografia de dados sensíveis do aparelho
-- Controle de concorrência com optimistic locking em entidades críticas
-- Documentação técnica consolidada das fases de planejamento, backend e frontend
+- Autenticacao JWT e bootstrap de usuario administrador
+- Endpoints principais de clientes, ordens de servico e estoque
+- Auditoria de operacoes criticas
+- Criptografia de dados sensiveis do aparelho
+- Controle de concorrencia com optimistic locking
+- CORS configurado para integracao local com o frontend
 
-## Estrutura do Repositório
+### Frontend concluido na Fase 3
 
-- [backend](backend/README.md): implementação backend em Spring Boot
-- [docs](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs): documentação funcional, arquitetural e técnica do projeto
+- Login integrado ao backend com persistencia local da sessao
+- Rotas protegidas por perfil (`ADMIN`, `ATENDENTE`, `TECNICO`)
+- Dashboard administrativo com cards, graficos e fila operacional
+- Layout premium com sidebar fixa, branding e visual SaaS
+- Listagem de ordens de servico com filtros e atualizacao de status
+- Formulario multi-step de abertura de OS
+- Preenchimento automatico de endereco por CEP no cadastro de cliente
+- Estrutura profissional de pastas pronta para crescimento do projeto
 
-## Documentação
+## Estrutura do Repositorio
 
-- [fase-1-teoria-fluxos-modulos.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs/fase-1-teoria-fluxos-modulos.md)
-- [fase-1-planejamento-detalhado.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs/fase-1-planejamento-detalhado.md)
-- [fase-2-backend-banco-apis.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs/fase-2-backend-banco-apis.md)
-- [fase-3-frontend-ux-deploy.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs/fase-3-frontend-ux-deploy.md)
-- [revisao-critica-arquitetura.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/docs/revisao-critica-arquitetura.md)
+```text
+backend/   API Spring Boot + JPA + Security + Flyway
+frontend/  Aplicacao React + Vite + Tailwind
+docs/      Documentacao funcional, arquitetural e tecnica
+```
 
-## Backend
+## Documentacao
 
-O backend já permite:
+- [Fase 1 - Teoria, Fluxos e Modulos](docs/fase-1-teoria-fluxos-modulos.md)
+- [Fase 1 - Planejamento Detalhado](docs/fase-1-planejamento-detalhado.md)
+- [Fase 2 - Backend, Banco e APIs](docs/fase-2-backend-banco-apis.md)
+- [Fase 3 - Frontend, UX e Deploy](docs/fase-3-frontend-ux-deploy.md)
+- [Revisao Critica de Arquitetura](docs/revisao-critica-arquitetura.md)
+- [README do Backend](backend/README.md)
+- [README do Frontend](frontend/README.md)
 
-- autenticação de usuários com JWT
-- cadastro e consulta de clientes
-- cadastro, consulta e ajuste de estoque
-- abertura, consulta e atualização de status de ordens de serviço
-- auditoria de eventos importantes
+## Como Rodar
 
-Mais detalhes em [backend/README.md](file:///c:/Users/Administrator/Documents/projeto%20assistencia%20Gtech/backend/README.md).
+### Backend
 
-## Próximas Atualizações
+```bash
+cd backend
+mvn spring-boot:run
+```
 
-As próximas evoluções previstas para o projeto são:
+API local esperada:
 
-- publicação do repositório remoto no GitHub
-- criação do frontend em React com TailwindCSS
-- tela de login integrada ao backend
-- dashboard administrativo com indicadores operacionais
-- telas de clientes, estoque e ordens de serviço
-- geração de PDFs e integrações operacionais
-- ampliação do módulo financeiro e comissão
-- testes automatizados e pipeline de deploy
+```text
+http://localhost:8080/api/v1
+```
 
-## Objetivo do Projeto
+### Frontend
 
-O objetivo é entregar um sistema robusto, profissional e pronto para produção para assistências técnicas de médio e grande porte, reduzindo controles manuais, melhorando rastreabilidade e aumentando a segurança operacional e financeira.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aplicacao local esperada:
+
+```text
+http://localhost:5173
+```
+
+### Login padrao
+
+```text
+usuario: admin
+senha: Admin@123
+```
+
+## Funcionalidades Ja Entregues
+
+- Cadastro e consulta de clientes
+- Cadastro, consulta e ajuste de estoque
+- Abertura, consulta e atualizacao de status de ordens de servico
+- Dashboard administrativo para acompanhamento da operacao
+- Interface responsiva para equipe tecnica e gestao
+- Autocomplete de endereco por CEP na abertura de OS
+- Base pronta para evolucao de modulos financeiros, PDF e notificacoes
+
+## Proximas Evolucoes Recomendadas
+
+- Integrar modulo completo de clientes com busca e edicao dedicada
+- Integrar modulo visual de estoque com alertas e ajustes no frontend
+- Criar endpoint de listagem de tecnicos para substituir o `tecnicoId` manual
+- Adicionar endpoints especificos de dashboard e BI
+- Implementar geracao oficial de PDF pelo backend
+- Integrar notificacoes operacionais via WhatsApp/API de mensageria
+- Publicar repositorio em remoto com pipeline de deploy
+
+## Observacoes de Git
+
+- Arquivos de apoio local como `.trae/` e `tools/` ficam ignorados no controle de versao
+- O commit local registra o estado atual do backend e da Fase 3 do frontend
+- Nao existe remoto configurado neste repositorio no momento, entao o backup no Git sera local ate configurar um `origin`
