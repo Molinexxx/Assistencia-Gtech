@@ -62,6 +62,15 @@ public class OrdemServicoController {
         return ResponseEntity.ok(ordemServicoService.buscarPorId(id));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','ATENDENTE')")
+    public ResponseEntity<OrdemServicoResponseDTO> atualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody OrdemServicoRequestDTO request
+    ) {
+        return ResponseEntity.ok(ordemServicoService.atualizar(id, request));
+    }
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','ATENDENTE','TECNICO')")
     public ResponseEntity<OrdemServicoResponseDTO> atualizarStatus(

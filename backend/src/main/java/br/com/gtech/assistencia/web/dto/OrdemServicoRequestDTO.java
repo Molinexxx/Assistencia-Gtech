@@ -47,6 +47,8 @@ public class OrdemServicoRequestDTO {
 
     private Long tecnicoId;
 
+    private Long version;
+
     @Valid
     @NotNull
     private List<ItemPecaDTO> itensPecas = new ArrayList<>();
@@ -121,6 +123,14 @@ public class OrdemServicoRequestDTO {
 
     public void setTecnicoId(Long tecnicoId) {
         this.tecnicoId = tecnicoId;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     public List<ItemPecaDTO> getItensPecas() {

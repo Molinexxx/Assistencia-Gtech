@@ -79,38 +79,10 @@ public class OrdemServicoService {
         ordemServico.setCliente(cliente);
         ordemServico.setAparelho(aparelho);
         ordemServico.setAtendente(atendente);
-        ordemServico.setTecnico(tecnico);
         ordemServico.setStatus(StatusOrdemServico.EM_ANALISE);
-        ordemServico.setProblemaRelatado(request.getProblemaRelatado());
-        ordemServico.setChecklistTela(request.getChecklist().getTela());
-        ordemServico.setChecklistCarcaca(request.getChecklist().getCarcaca());
-        ordemServico.setChecklistBotoes(request.getChecklist().getBotoes());
-        ordemServico.setChecklistConectores(request.getChecklist().getConectores());
-        ordemServico.setChecklistCameras(request.getChecklist().getCameras());
-        ordemServico.setChecklistBiometria(request.getChecklist().getBiometria());
-        ordemServico.setChecklistOxidacao(Boolean.TRUE.equals(request.getChecklist().getOxidacao()));
-        ordemServico.setAcessoriosRecebidos(request.getAcessoriosRecebidos());
-        ordemServico.setImeiConfirmado(request.getImeiConfirmado());
         ordemServico.setDataEntrada(LocalDateTime.now());
-        ordemServico.setDataPrevisao(request.getDataPrevisao());
 
-        BigDecimal totalPecas = BigDecimal.ZERO;
-        for (OrdemServicoRequestDTO.ItemPecaDTO itemRequest : request.getItensPecas()) {
-            ItemOrdemServicoPeca item = new ItemOrdemServicoPeca();
-            EstoquePeca estoquePeca = localizarPecaSeInformada(itemRequest.getEstoquePecaId());
-            item.setEstoquePeca(estoquePeca);
-            item.setDescricao(itemRequest.getDescricao());
-            item.setQuantidade(itemRequest.getQuantidade());
-            item.setValorUnitario(itemRequest.getValorUnitario());
-            item.setSubtotal(itemRequest.getQuantidade().multiply(itemRequest.getValorUnitario()));
-            ordemServico.adicionarItem(item);
-            totalPecas = totalPecas.add(item.getSubtotal());
-        }
-
-        ordemServico.setValorPecas(totalPecas);
-        ordemServico.setValorMaoObra(BigDecimal.ZERO);
-        ordemServico.setDesconto(BigDecimal.ZERO);
-        ordemServico.setValorTotal(totalPecas);
+        preencherDadosOperacionais(ordemServico, request, tecnico);
 
         OrdemServico ordemServicoSalva = ordemServicoRepository.save(ordemServico);
         salvarAuditoriaInicial(ordemServicoSalva, atendente);
@@ -133,6 +105,28 @@ public class OrdemServicoService {
     }
 
     @Transactional
+    public OrdemServicoResponseDTO atualizar(Long id, OrdemServicoRequestDTO request) {
+        validarImei(request);
+
+        OrdemServico ordemServico = ordemServicoRepository.buscarDetalhadaPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ordem de servico nao encontrada."));
+
+        validarVersion(ordemServico.getVersion(), request.getVersion());
+
+        Cliente cliente = localizarOuCriarCliente(request.getCliente());
+        Aparelho aparelho = localizarOuCriarAparelho(cliente, request);
+        Usuario tecnico = localizarTecnicoSeInformado(request.getTecnicoId());
+
+        ordemServico.setCliente(cliente);
+        ordemServico.setAparelho(aparelho);
+        preencherDadosOperacionais(ordemServico, request, tecnico);
+
+        OrdemServico salva = ordemServicoRepository.save(ordemServico);
+        salvarAuditoriaDeEdicao(salva, authenticatedUserService.getCurrentUser());
+        return toResponse(salva);
+    }
+
+    @Transactional
     public OrdemServicoResponseDTO atualizarStatus(Long id, AtualizarStatusOrdemServicoRequestDTO request) {
         OrdemServico ordemServico = ordemServicoRepository.buscarDetalhadaPorId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ordem de servico nao encontrada."));
@@ -151,6 +145,54 @@ public class OrdemServicoService {
         OrdemServico salva = ordemServicoRepository.save(ordemServico);
         salvarAuditoriaDeStatus(salva, authenticatedUserService.getCurrentUser());
         return toResponse(salva);
+    }
+
+    private void preencherDadosOperacionais(OrdemServico ordemServico, OrdemServicoRequestDTO request, Usuario tecnico) {
+        ordemServico.setTecnico(tecnico);
+        ordemServico.setProblemaRelatado(request.getProblemaRelatado());
+        ordemServico.setChecklistTela(request.getChecklist().getTela());
+        ordemServico.setChecklistCarcaca(request.getChecklist().getCarcaca());
+        ordemServico.setChecklistBotoes(request.getChecklist().getBotoes());
+        ordemServico.setChecklistConectores(request.getChecklist().getConectores());
+        ordemServico.setChecklistCameras(request.getChecklist().getCameras());
+        ordemServico.setChecklistBiometria(request.getChecklist().getBiometria());
+        ordemServico.setChecklistOxidacao(Boolean.TRUE.equals(request.getChecklist().getOxidacao()));
+        ordemServico.setAcessoriosRecebidos(request.getAcessoriosRecebidos());
+        ordemServico.setImeiConfirmado(request.getImeiConfirmado());
+        ordemServico.setDataPrevisao(request.getDataPrevisao());
+        sincronizarItens(ordemServico, request.getItensPecas());
+        recalcularValores(ordemServico);
+    }
+
+    private void sincronizarItens(OrdemServico ordemServico, List<OrdemServicoRequestDTO.ItemPecaDTO> itensRequest) {
+        ordemServico.getItensPecas().clear();
+
+        for (OrdemServicoRequestDTO.ItemPecaDTO itemRequest : itensRequest) {
+            ItemOrdemServicoPeca item = new ItemOrdemServicoPeca();
+            EstoquePeca estoquePeca = localizarPecaSeInformada(itemRequest.getEstoquePecaId());
+            item.setEstoquePeca(estoquePeca);
+            item.setDescricao(itemRequest.getDescricao());
+            item.setQuantidade(itemRequest.getQuantidade());
+            item.setValorUnitario(itemRequest.getValorUnitario());
+            item.setSubtotal(itemRequest.getQuantidade().multiply(itemRequest.getValorUnitario()));
+            ordemServico.adicionarItem(item);
+        }
+    }
+
+    private void recalcularValores(OrdemServico ordemServico) {
+        BigDecimal totalPecas = ordemServico.getItensPecas().stream()
+                .map(ItemOrdemServicoPeca::getSubtotal)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        ordemServico.setValorPecas(totalPecas);
+        if (ordemServico.getValorMaoObra() == null) {
+            ordemServico.setValorMaoObra(BigDecimal.ZERO);
+        }
+        if (ordemServico.getDesconto() == null) {
+            ordemServico.setDesconto(BigDecimal.ZERO);
+        }
+        ordemServico.setValorTotal(totalPecas.add(ordemServico.getValorMaoObra()).subtract(ordemServico.getDesconto()));
     }
 
     private void validarImei(OrdemServicoRequestDTO request) {
@@ -282,6 +324,16 @@ public class OrdemServicoService {
         auditoriaAtividadeRepository.save(auditoria);
     }
 
+    private void salvarAuditoriaDeEdicao(OrdemServico ordemServico, Usuario usuario) {
+        AuditoriaAtividade auditoria = new AuditoriaAtividade();
+        auditoria.setEntidade("ORDEM_SERVICO");
+        auditoria.setEntidadeId(ordemServico.getId());
+        auditoria.setAcao("EDICAO_OS");
+        auditoria.setDetalhes("OS editada mantendo status atual " + ordemServico.getStatus().name());
+        auditoria.setUsuario(usuario);
+        auditoriaAtividadeRepository.save(auditoria);
+    }
+
     private void salvarAuditoriaDeStatus(OrdemServico ordemServico, Usuario usuario) {
         AuditoriaAtividade auditoria = new AuditoriaAtividade();
         auditoria.setEntidade("ORDEM_SERVICO");
@@ -307,14 +359,58 @@ public class OrdemServicoService {
         response.setAparelhoId(ordemServico.getAparelho().getId());
         response.setAtendenteId(ordemServico.getAtendente().getId());
         response.setTecnicoId(ordemServico.getTecnico() != null ? ordemServico.getTecnico().getId() : null);
+        response.setTecnicoNome(ordemServico.getTecnico() != null ? ordemServico.getTecnico().getNome() : null);
         response.setClienteNome(ordemServico.getCliente().getNome());
+        response.setClienteCpfCnpj(ordemServico.getCliente().getCpfCnpj());
+        response.setClienteTelefone(ordemServico.getCliente().getTelefone());
         response.setAparelhoDescricao(ordemServico.getAparelho().getMarca() + " " + ordemServico.getAparelho().getModelo());
         response.setValorPecas(ordemServico.getValorPecas());
         response.setValorMaoObra(ordemServico.getValorMaoObra());
         response.setDesconto(ordemServico.getDesconto());
         response.setValorTotal(ordemServico.getValorTotal());
+        response.setAcessoriosRecebidos(ordemServico.getAcessoriosRecebidos());
+        response.setProblemaRelatado(ordemServico.getProblemaRelatado());
+        response.setImeiConfirmado(ordemServico.getImeiConfirmado());
+        response.setSenhaDispositivo(sensitiveDataCryptoService.decrypt(ordemServico.getAparelho().getSenhaCriptografada(), ordemServico.getAparelho().getSenhaIv()));
         response.setDataEntrada(ordemServico.getDataEntrada());
+        response.setDataPrevisao(ordemServico.getDataPrevisao());
         response.setVersion(ordemServico.getVersion());
+
+        OrdemServicoResponseDTO.ClienteDetalheDTO cliente = new OrdemServicoResponseDTO.ClienteDetalheDTO();
+        cliente.setId(ordemServico.getCliente().getId());
+        cliente.setNome(ordemServico.getCliente().getNome());
+        cliente.setCpfCnpj(ordemServico.getCliente().getCpfCnpj());
+        cliente.setEmail(ordemServico.getCliente().getEmail());
+        cliente.setTelefone(ordemServico.getCliente().getTelefone());
+        cliente.setLogradouro(ordemServico.getCliente().getLogradouro());
+        cliente.setNumero(ordemServico.getCliente().getNumero());
+        cliente.setBairro(ordemServico.getCliente().getBairro());
+        cliente.setCidade(ordemServico.getCliente().getCidade());
+        cliente.setUf(ordemServico.getCliente().getUf());
+        cliente.setCep(ordemServico.getCliente().getCep());
+        response.setCliente(cliente);
+
+        OrdemServicoResponseDTO.AparelhoDetalheDTO aparelho = new OrdemServicoResponseDTO.AparelhoDetalheDTO();
+        aparelho.setMarca(ordemServico.getAparelho().getMarca());
+        aparelho.setModelo(ordemServico.getAparelho().getModelo());
+        aparelho.setCor(ordemServico.getAparelho().getCor());
+        aparelho.setImei(ordemServico.getAparelho().getImei());
+        aparelho.setNumeroSerie(ordemServico.getAparelho().getNumeroSerie());
+        aparelho.setBloqueioConta(ordemServico.getAparelho().isBloqueioConta());
+        aparelho.setBloqueioFrp(ordemServico.getAparelho().isBloqueioFrp());
+        aparelho.setObservacoes(ordemServico.getAparelho().getObservacoes());
+        response.setAparelho(aparelho);
+
+        OrdemServicoResponseDTO.ChecklistDTO checklist = new OrdemServicoResponseDTO.ChecklistDTO();
+        checklist.setTela(ordemServico.getChecklistTela());
+        checklist.setCarcaca(ordemServico.getChecklistCarcaca());
+        checklist.setBotoes(ordemServico.getChecklistBotoes());
+        checklist.setConectores(ordemServico.getChecklistConectores());
+        checklist.setCameras(ordemServico.getChecklistCameras());
+        checklist.setBiometria(ordemServico.getChecklistBiometria());
+        checklist.setOxidacao(ordemServico.isChecklistOxidacao());
+        response.setChecklist(checklist);
+
         response.setItens(ordemServico.getItensPecas().stream().map(item -> {
             OrdemServicoResponseDTO.ItemResumoDTO itemDto = new OrdemServicoResponseDTO.ItemResumoDTO();
             itemDto.setId(item.getId());

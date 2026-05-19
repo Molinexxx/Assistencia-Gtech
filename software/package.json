@@ -1,0 +1,64 @@
+{
+  "name": "gtech-assistencia-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Executavel desktop do sistema GTech Assistencia Pro",
+  "main": "main.js",
+  "author": "GTech",
+  "license": "UNLICENSED",
+  "scripts": {
+    "web:dev": "cd ..\\pagina-web && npm run dev",
+    "web:build": "cd ..\\pagina-web && npm run build",
+    "desktop:start": "electron .",
+    "desktop:dev": "npm run web:build && electron .",
+    "dist:win": "npm run web:build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "br.com.gtech.assistencia.desktop",
+    "productName": "GTech Assistencia Pro",
+    "directories": {
+      "buildResources": "desktop/assets",
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "desktop/**/*",
+      "../pagina-web/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/app-config.json",
+        "to": "app-config.json"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GTech Assistencia Pro"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "SEU_USUARIO",
+        "repo": "SEU_REPOSITORIO"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^36.4.0",
+    "electron-builder": "^24.13.3",
+    "electron-updater": "^6.3.9"
+  }
+}

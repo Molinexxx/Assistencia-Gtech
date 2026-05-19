@@ -1,0 +1,7 @@
+{
+  "appName": "GTech Assistencia Pro",
+  "apiBaseUrl": "http://localhost:8080/api/v1",
+  "healthUrl": "http://localhost:8080/actuator/health",
+  "reconnectIntervalMs": 5000,
+  "windowTitle": "GTech Assistencia Pro"
+}
