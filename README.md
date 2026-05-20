@@ -26,7 +26,7 @@ O projeto foi estruturado em fases para evoluir com consistencia entre negocio, 
 - Estado e formularios: TanStack Query + React Hook Form + Zod
 - HTTP Client: Axios com interceptor JWT
 - Desktop: Electron + contextBridge + preload seguro
-- Build backend: Maven
+- Build backend: Maven Wrapper (`mvnw.cmd`) + Maven
 
 ## Estado Atual do Projeto
 
@@ -98,7 +98,7 @@ O projeto foi estruturado em fases para evoluir com consistencia entre negocio, 
 
 ```bash
 cd backend
-mvn spring-boot:run
+.\\mvnw.cmd spring-boot:run
 ```
 
 API local esperada:

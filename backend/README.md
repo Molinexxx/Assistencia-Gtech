@@ -73,9 +73,9 @@ backend/
 - Entidades JPA principais da abertura de OS.
 - `@Version` em `OrdemServico` e `EstoquePeca` para optimistic locking.
 - Controller, DTOs validados e service transacional para abertura de OS.
-- Criptografia AES-GCM para senha do aparelho na camada de aplicação.
+- Criptografia AES-GCM para senha do aparelho na camada de aplicacao.
 - Autenticacao JWT com Spring Security e usuario administrador bootstrap.
-- Endpoints funcionais para autenticacao, clientes, ordens de servico e estoque.
+- Endpoints funcionais para autenticacao, clientes, ordens de servico, usuarios tecnicos e estoque.
 
 ## Endpoints Principais
 
@@ -87,7 +87,9 @@ backend/
 - `POST /api/v1/ordens-servico`
 - `GET /api/v1/ordens-servico`
 - `GET /api/v1/ordens-servico/{id}`
+- `PUT /api/v1/ordens-servico/{id}`
 - `PUT /api/v1/ordens-servico/{id}/status`
+- `GET /api/v1/usuarios/tecnicos`
 - `POST /api/v1/estoque/pecas`
 - `GET /api/v1/estoque/pecas`
 - `GET /api/v1/estoque/pecas/{id}`
@@ -103,12 +105,21 @@ backend/
 
 ## Subida Local
 
+Com wrapper recomendado:
+
 ```bash
 cd backend
-mvn clean spring-boot:run
+.\mvnw.cmd clean spring-boot:run
+```
+
+Opcional para apenas subir a aplicacao:
+
+```bash
+cd backend
+.\mvnw.cmd spring-boot:run
 ```
 
 ## Observacoes
 
-- O ambiente atual deste workspace nao possui `java` nem `mvn`, entao a compilacao precisa ser executada na sua maquina ou CI.
-- Antes de subir, garanta MySQL 8.x ativo e credenciais compatíveis com `application.yml`.
+- O `mvnw.cmd` baixa automaticamente uma versao fixa do Maven se ele nao estiver instalado na maquina.
+- Antes de subir, garanta Java 17 e MySQL 8.x ativos com credenciais compativeis com `application.yml`.
