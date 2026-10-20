@@ -1,5 +1,7 @@
 package br.com.gtech.assistencia.web.dto;
 
+import br.com.gtech.assistencia.domain.estoque.CategoriaEstoque;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +18,9 @@ public class EstoquePecaRequestDTO {
     @NotBlank
     @Size(max = 160)
     private String nome;
+
+    @NotNull
+    private CategoriaEstoque categoria;
 
     @Size(max = 500)
     private String descricao;
@@ -63,6 +68,14 @@ public class EstoquePecaRequestDTO {
 
     public String getDescricao() {
         return descricao;
+    }
+
+    public CategoriaEstoque getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(CategoriaEstoque categoria) {
+        this.categoria = categoria;
     }
 
     public void setDescricao(String descricao) {

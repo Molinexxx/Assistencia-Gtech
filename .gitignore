@@ -11,3 +11,5 @@ software/node_modules/
 software/release/
 pagina-web/node_modules/
 pagina-web/dist/
+outputs/
+work/

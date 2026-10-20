@@ -1,170 +1,174 @@
-# Sistema de Assistencia Tecnica GTech
+# GTech — Gestão de assistência técnica e estoque
 
-Sistema profissional para gestao de assistencia tecnica de celulares e eletronicos, com backend em Spring Boot, banco MySQL, pagina web em React e base desktop em Electron.
+Projeto em desenvolvimento com backend Java/Spring Boot, banco MySQL, interface web React/TypeScript e uma base de aplicativo desktop Electron.
 
-## Organizacao Atual das Pastas
+O foco atual é concluir e validar o controle de estoque. Clientes, aparelhos e ordens de serviço já têm implementação no backend, mas a aplicação completa ainda tem pendências descritas abaixo.
+
+## Organização
 
 ```text
-backend/      API Spring Boot + JPA + Security + Flyway
-software/     Aplicacao desktop Electron / executavel Windows
-pagina-web/   Frontend React + Vite + Tailwind
-docs/         Documentacao funcional, arquitetural e tecnica
+backend/      API Java 17, Spring Boot 3.3.5, JPA, Security e Flyway
+pagina-web/   Interface utilizada atualmente: React 19, TypeScript e Vite 8
+software/     Aplicativo Electron que utiliza a interface de pagina-web/
+frontend/     Outra árvore de interface; comparar antes de arquivar ou remover
+docs/         Planejamentos e documentação técnica
 ```
 
-## Visao Geral
+Fluxo de uma operação: **tela → API Java → regras de negócio → MySQL → resposta para a tela**.
 
-O projeto foi estruturado em fases para evoluir com consistencia entre negocio, banco de dados, backend, frontend web e aplicacao desktop. Hoje o repositorio contem backend funcional, pagina web premium com foco operacional para assistencia tecnica e base desktop pronta para empacotamento em Windows.
+## Estoque: funcionalidades disponíveis
 
-## Stack Tecnologica
+- Cadastro com SKU, nome, descrição, unidade, categoria, custo, preço, saldo inicial e estoque mínimo.
+- Categorias salvas no banco: `PECAS`, `ACESSORIOS` e `FERRAMENTAS`, escolhidas no cadastro e na edição.
+- Busca por nome ou SKU, incluindo trechos e sem diferenciar maiúsculas e minúsculas.
+- Filtros por categoria utilizando o valor salvo, sem classificação automática pelo nome.
+- Entrada de unidades de uma peça existente.
+- Saída com quantidade e motivo, mensagem de confirmação e atualização da lista.
+- Bloqueio de saldo negativo e de novas saídas pela tela quando o estoque está zerado.
+- Alertas visuais: amarelo para saldo baixo e vermelho para saldo crítico ou zerado.
+- Histórico por peça com data, tipo, quantidade, motivo, responsável, saldo anterior e saldo posterior. A consulta traz 20 registros por página, dos mais recentes para os mais antigos.
+- Edição de nome, descrição, categoria, custo, preço e estoque mínimo.
+- Proteção no backend contra alteração de quantidade pela edição do cadastro. Mudanças de saldo devem usar as operações de movimentação.
+- Controle de versão para recusar edições com dados desatualizados.
+- Mensagens de cadastro para SKU repetido, campos obrigatórios e valores negativos dentro da janela de formulário, preservando os dados preenchidos em caso de erro.
 
-- Backend: Java 17 + Spring Boot 3.x
-- Seguranca: Spring Security + JWT
-- Persistencia: Spring Data JPA + Flyway
-- Banco de dados: MySQL 8.x
-- Frontend Web: React 19 + TypeScript + Vite 8
-- UI: TailwindCSS 4 + Lucide React + Recharts
-- Estado e formularios: TanStack Query + React Hook Form + Zod
-- HTTP Client: Axios com interceptor JWT
-- Desktop: Electron + contextBridge + preload seguro
-- Build backend: Maven Wrapper (`mvnw.cmd`) + Maven
+Na interface, **Entrada de mercadoria** cadastra um novo item. **Registrar entrada** adiciona unidades de um item já cadastrado.
 
-## Estado Atual do Projeto
+### Atualização do banco
+
+O Flyway executa as migrations ao iniciar o backend:
+
+- `V1__baseline_schema.sql`: estrutura inicial.
+- `V2__categoria_estoque.sql`: adiciona categoria ao estoque, com restrição aos três valores permitidos.
+
+Os itens existentes recebem inicialmente `PECAS` e podem ser reclassificados pela edição. A migration preserva cadastros, saldos e histórico. Não é necessário apagar ou recriar o banco para aplicá-la.
+
+Requisições de cadastro e edição devem incluir `categoria`. A edição também deve informar a versão atual e o saldo já existente, sem modificá-lo.
+
+## Executar no Windows / PowerShell
+
+### Pré-requisitos
+
+- Java 17 disponível no terminal.
+- Node.js compatível com o Vite 8: `^20.19.0` ou `>=22.12.0`.
+- MySQL 8 ativo e um banco chamado `assistencia_gtech`.
+- Usuário MySQL com acesso ao banco e permissão para executar as migrations.
+
+Para criar o banco, execute no MySQL com um usuário autorizado:
+
+```sql
+CREATE DATABASE IF NOT EXISTS assistencia_gtech
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 1. Backend — primeiro terminal
+
+Partindo da pasta principal do projeto:
+
+```powershell
+Set-Location backend
+
+# Ajuste para o usuário e a senha do seu MySQL local.
+$env:SPRING_DATASOURCE_USERNAME = 'SEU_USUARIO_MYSQL'
+$env:SPRING_DATASOURCE_PASSWORD = 'SUA_SENHA_LOCAL'
+
+.\mvnw.cmd spring-boot:run
+```
+
+A URL padrão do banco está em `backend/src/main/resources/application.yml`. Ela também pode ser substituída pela variável `SPRING_DATASOURCE_URL`.
+
+Aguarde `Started AssistenciaApplication`. A API fica em `http://localhost:8080/api/v1`. O wrapper pode baixar Maven e dependências na primeira execução.
+
+### 2. Interface — segundo terminal
+
+Abra outro terminal na pasta principal:
+
+```powershell
+Set-Location pagina-web
+npm.cmd ci
+npm.cmd run dev
+```
+
+Acesse o endereço local exibido pelo Vite, normalmente `http://localhost:5173`. Mantenha os dois terminais abertos.
+
+No PowerShell, `npm.cmd` pode ser usado quando a política de execução bloqueia `npm.ps1`, sem alterar a política do Windows.
+
+O endereço padrão da API é `http://localhost:8080/api/v1`; a interface aceita `VITE_API_BASE_URL` para outro ambiente.
+
+### Acesso inicial de desenvolvimento
+
+- Usuário: `admin`
+- Senha: `Admin@123`
+
+São valores de bootstrap para um banco sem o administrador cadastrado. As variáveis `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_NOME` permitem configurar a criação inicial; não representam uma troca automática da senha de um usuário existente.
+
+Antes de uso real, configure credenciais próprias e as variáveis `JWT_SECRET` e `APARELHO_SECRET_KEY`. A chave de aparelho precisa ter exatamente 32 bytes. Não versione senhas ou chaves reais.
+
+### Após alterar código
+
+- Mudanças da interface normalmente aparecem automaticamente pelo Vite.
+- Após mudanças no Java ou em migrations, interrompa o backend com `Ctrl + C` e execute novamente `.\mvnw.cmd spring-boot:run`.
+
+## Verificações
 
 ### Backend
 
-- Autenticacao JWT e bootstrap de usuario administrador
-- Endpoints principais de clientes, ordens de servico e estoque
-- Auditoria de operacoes criticas
-- Criptografia de dados sensiveis do aparelho
-- Controle de concorrencia com optimistic locking
-- CORS configurado para integracao local com frontend e desktop
-- Busca de tecnicos por nome para alimentar o fluxo operacional da OS
-- Endpoint de detalhe da OS por ID
-- Endpoint de edicao completa da OS com reaproveitamento de cliente, aparelho, checklist e itens
-
-### Pagina Web
-
-- Login integrado ao backend com persistencia local da sessao
-- Rotas protegidas por perfil (`ADMIN`, `ATENDENTE`, `TECNICO`)
-- Dashboard administrativo com cards, graficos e fila operacional
-- Layout premium com sidebar fixa, branding e visual SaaS
-- Sidebar com estado ativo exclusivo para evitar destaque duplicado
-- Listagem de ordens de servico com filtros, atualizacao de status e edicao direta
-- Busca global de clientes por nome, CPF ou telefone dentro do modulo de OS
-- Formulario multi-step de abertura e edicao de OS
-- Selects buscaveis para marca, modelo e tecnico responsavel
-- PIN pad visual para senha do aparelho com operacao por mouse ou toque
-- Preenchimento automatico de endereco por CEP no cadastro do cliente
-- Modulo de estoque premium com filtros por categoria, alertas semanticos e entrada de mercadoria
-- Componentes reutilizaveis para modal, select com busca e blocos operacionais
-
-### Software Desktop
-
-- Estrutura Electron separada em `software/`
-- `main.js` seguro com `contextBridge`, `preload` e `nodeIntegration: false`
-- Configuracao externa da URL da API sem recompilar
-- Monitoramento de conexao com overlay de reconexao
-- Compatibilidade com `file://` via roteamento adaptado
-- Base de empacotamento Windows com NSIS
-
-## Principais Atualizacoes Recentes
-
-### Refatoracao da Nova OS
-
-- Stepper operacional em 3 etapas com foco em velocidade de atendimento
-- Etapa de aparelho com selecao de marca e modelo via busca interna
-- PIN pad visual para senha do aparelho
-- Tecnico responsavel exibido por nome, nao por ID
-- Edicao completa da OS existente a partir da listagem
-
-### Gestao de Ordens de Servico
-
-- Busca global de cliente por nome, CPF e telefone
-- Atualizacao de status com controle de versao
-- Tabela operacional com acesso rapido a edicao
-- Retorno detalhado da OS para reabrir formularios sem perda de contexto
-
-### Modulo de Estoque
-
-- Interface premium nas cores azul marinho, grafite e branco
-- Filtros por categoria: pecas, acessorios e ferramentas
-- Alertas semanticos para estoque baixo e critico
-- Modal de entrada de mercadoria
-- Acao rapida de reposicao por item
-
-## Como Rodar
-
-### Backend
-
-```bash
-cd backend
-.\\mvnw.cmd spring-boot:run
+```powershell
+Set-Location backend
+.\mvnw.cmd test
 ```
 
-API local esperada:
+Há cinco testes automatizados em `EstoqueServiceTest`, cobrindo edição de preço sem movimentar saldo, bloqueio de alteração de quantidade pelo cadastro, versão desatualizada, mudança explícita de categoria e preservação da categoria ao renomear a peça.
 
-```text
-http://localhost:8080/api/v1
+### Interface
+
+```powershell
+Set-Location pagina-web
+npm.cmd run build
+npm.cmd run lint
 ```
 
-Health check esperado:
+Os cinco testes Java e o build completo da interface passaram. A checagem de tipos e o ESLint dos arquivos alterados também passaram. O lint completo ainda aponta um problema preexistente em `src/components/ui/SearchableSelect.tsx`, relacionado a `setQuery` dentro de um efeito.
 
-```text
-http://localhost:8080/actuator/health
+Foram verificados pela interface: cadastro e persistência após atualizar a página; entrada e saída; alertas de estoque baixo, zerado e reposição; histórico; SKU duplicado; nome obrigatório; quantidade negativa; busca por nome e código; edição de preço e descrição; persistência e filtros de categorias. Esses testes não equivalem à validação de todos os módulos ou de um ambiente de produção.
+
+## Desktop
+
+Com backend e banco configurados, os scripts existentes são:
+
+```powershell
+Set-Location software
+npm.cmd ci
+npm.cmd run desktop:dev
+
+# Para gerar o instalador Windows:
+npm.cmd run dist:win
 ```
 
-### Pagina Web
+O desktop utiliza o build de `pagina-web/`; após mudanças web, gere-o novamente. A geração e a instalação do executável ainda precisam de validação. A configuração de conexão está em `software/desktop/app-config.json`.
 
-```bash
-cd pagina-web
-npm install
-npm run dev
-```
+## Próximas etapas
 
-Aplicacao web local esperada:
+1. Desativar e reativar itens preservando cadastro e histórico — ainda não implementado na tela.
+2. Revisar ajustes, concorrência e consistência entre saldo e movimentações.
+3. Criar relatórios de estoque, movimentos por período e exportação.
+4. Revisar permissões, tratamento de falhas e configurações de segurança.
+5. Preparar backup do MySQL e testar restauração.
+6. Ampliar testes automatizados e corrigir o lint pendente.
+7. Validar instalação e conexão do aplicativo desktop.
+8. Completar a tela independente de clientes e integrar consumo de peças às ordens de serviço.
 
-```text
-http://localhost:5173
-```
+Limitações conhecidas: peças incluídas em uma OS ainda não provocam baixa automática; o indicador de faturamento soma valores de ordens pela data de entrada, sem confirmar recebimentos; a listagem de OS precisa de revisão por devolver a senha descriptografada do aparelho; o monitor desktop usa `/actuator/health`, mas o backend ainda não declara o starter Actuator. Financeiro e comissões têm tabelas planejadas, sem módulos completos validados.
 
-### Software Desktop
+## Documentação complementar
 
-```bash
-cd software
-npm install
-npm run desktop:dev
-```
+- [Backend](backend/README.md)
+- [Interface web](pagina-web/README.md)
+- [Fluxos e módulos](docs/fase-1-teoria-fluxos-modulos.md)
+- [Planejamento](docs/fase-1-planejamento-detalhado.md)
+- [Backend, banco e APIs](docs/fase-2-backend-banco-apis.md)
+- [Frontend, UX e deploy](docs/fase-3-frontend-ux-deploy.md)
+- [Arquitetura da interface](docs/arquitetura-tecnica-fase-3-frontend.md)
+- [Revisão de arquitetura](docs/revisao-critica-arquitetura.md)
 
-Para gerar instalador Windows:
-
-```bash
-cd software
-npm run dist:win
-```
-
-## Login Padrao
-
-```text
-usuario: admin
-senha: Admin@123
-```
-
-## Documentacao
-
-- [Fase 1 - Teoria, Fluxos e Modulos](docs/fase-1-teoria-fluxos-modulos.md)
-- [Fase 1 - Planejamento Detalhado](docs/fase-1-planejamento-detalhado.md)
-- [Fase 2 - Backend, Banco e APIs](docs/fase-2-backend-banco-apis.md)
-- [Fase 3 - Frontend, UX e Deploy](docs/fase-3-frontend-ux-deploy.md)
-- [PRD Fase 3 Frontend React](docs/prd-fase-3-frontend-react.md)
-- [Arquitetura Tecnica Fase 3 Frontend](docs/arquitetura-tecnica-fase-3-frontend.md)
-- [Resumo Para GitHub](docs/resumo-atualizacoes-github.md)
-- [Revisao Critica de Arquitetura](docs/revisao-critica-arquitetura.md)
-- [README do Backend](backend/README.md)
-- [README da Pagina Web](pagina-web/README.md)
-
-## Observacoes
-
-- A pasta `software/` concentra somente o app desktop / executavel
-- A pasta `pagina-web/` concentra somente a interface web React
-- O backend continua compartilhado por ambas as experiencias
-- Para refletir as mudancas da pagina web no executavel, e necessario recompilar o desktop apos gerar novo build
+Os documentos de fases incluem planos e propostas; consulte o código e esta lista de pendências para distinguir planejamento de funcionalidades já verificadas.

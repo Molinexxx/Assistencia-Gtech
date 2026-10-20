@@ -3,6 +3,8 @@ package br.com.gtech.assistencia.domain.estoque;
 import br.com.gtech.assistencia.domain.shared.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,6 +26,10 @@ public class EstoquePeca extends AuditableEntity {
 
     @Column(nullable = false, length = 160)
     private String nome;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30, columnDefinition = "VARCHAR(30)")
+    private CategoriaEstoque categoria = CategoriaEstoque.PECAS;
 
     @Column(length = 500)
     private String descricao;
@@ -72,6 +78,14 @@ public class EstoquePeca extends AuditableEntity {
 
     public String getDescricao() {
         return descricao;
+    }
+
+    public CategoriaEstoque getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(CategoriaEstoque categoria) {
+        this.categoria = categoria;
     }
 
     public void setDescricao(String descricao) {

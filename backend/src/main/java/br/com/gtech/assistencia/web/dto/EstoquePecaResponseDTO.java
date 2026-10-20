@@ -1,5 +1,7 @@
 package br.com.gtech.assistencia.web.dto;
 
+import br.com.gtech.assistencia.domain.estoque.CategoriaEstoque;
+
 import java.math.BigDecimal;
 
 public class EstoquePecaResponseDTO {
@@ -7,6 +9,7 @@ public class EstoquePecaResponseDTO {
     private Long id;
     private String sku;
     private String nome;
+    private CategoriaEstoque categoria;
     private String descricao;
     private String unidadeMedida;
     private BigDecimal custoMedio;
@@ -42,6 +45,14 @@ public class EstoquePecaResponseDTO {
 
     public String getDescricao() {
         return descricao;
+    }
+
+    public CategoriaEstoque getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(CategoriaEstoque categoria) {
+        this.categoria = categoria;
     }
 
     public void setDescricao(String descricao) {

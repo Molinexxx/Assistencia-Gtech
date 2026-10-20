@@ -66,6 +66,10 @@ public class MovimentacaoEstoque {
         return id;
     }
 
+    public LocalDateTime getDataMovimento() {
+        return dataMovimento;
+    }
+
     public EstoquePeca getEstoquePeca() {
         return estoquePeca;
     }

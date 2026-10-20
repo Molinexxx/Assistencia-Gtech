@@ -1,26 +1,29 @@
-import { AlertTriangle, ArrowDownToLine, Box, PackagePlus, Search, Wrench } from 'lucide-react'
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Box, History, PackagePlus, Pencil, Search, Wrench } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Modal } from '../components/ui/Modal'
+import { HistoricoEstoqueModal } from '../components/HistoricoEstoqueModal'
+import { EditarPecaModal } from '../components/EditarPecaModal'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { Select } from '../components/ui/Select'
 import { useEstoque } from '../hooks/useEstoque'
 import type { EstoqueCategoria, EstoquePecaResponse } from '../types/estoque'
 import { formatCurrency } from '../utils/format'
+import { getApiErrorMessage, getEstoqueCadastroErrorMessage } from '../utils/api'
 
 const categories: Array<{ label: string; value: EstoqueCategoria | 'ALL' }> = [
   { label: 'Todos', value: 'ALL' },
-  { label: 'Pecas', value: 'PECAS' },
-  { label: 'Acessorios', value: 'ACESSORIOS' },
+  { label: 'Peças', value: 'PECAS' },
+  { label: 'Acessórios', value: 'ACESSORIOS' },
   { label: 'Ferramentas', value: 'FERRAMENTAS' },
 ]
 
-function inferCategoria(item: EstoquePecaResponse): EstoqueCategoria {
-  const source = `${item.sku} ${item.nome} ${item.descricao ?? ''}`.toLowerCase()
-  if (/(cabo|capa|pelicula|carregador|fone|adaptador)/.test(source)) return 'ACESSORIOS'
-  if (/(chave|pinca|ferramenta|estacao|sugador|espatula)/.test(source)) return 'FERRAMENTAS'
-  return 'PECAS'
+const categoryLabels: Record<EstoqueCategoria, string> = {
+  PECAS: 'Peças',
+  ACESSORIOS: 'Acessórios',
+  FERRAMENTAS: 'Ferramentas',
 }
 
 function getStockTone(item: EstoquePecaResponse) {
@@ -34,19 +37,39 @@ export function EstoquePage() {
   const [category, setCategory] = useState<EstoqueCategoria | 'ALL'>('ALL')
   const [entryModalOpen, setEntryModalOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<EstoquePecaResponse | null>(null)
-  const [novoItem, setNovoItem] = useState({ sku: '', nome: '', descricao: '', unidadeMedida: 'UN', custoMedio: '0', precoVenda: '0', quantidadeAtual: '1', estoqueMinimo: '1' })
+  const [novoItem, setNovoItem] = useState({ sku: '', nome: '', categoria: 'PECAS' as EstoqueCategoria, descricao: '', unidadeMedida: 'UN', custoMedio: '0', precoVenda: '0', quantidadeAtual: '1', estoqueMinimo: '1' })
   const [entryQuantity, setEntryQuantity] = useState('1')
   const [entryObservation, setEntryObservation] = useState('Reposicao de balcao')
+  const [exitItem, setExitItem] = useState<EstoquePecaResponse | null>(null)
+  const [exitQuantity, setExitQuantity] = useState('1')
+  const [exitReason, setExitReason] = useState('')
+  const [exitError, setExitError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [historyItem, setHistoryItem] = useState<EstoquePecaResponse | null>(null)
+  const [editingItem, setEditingItem] = useState<EstoquePecaResponse | null>(null)
   const { adjustMutation, alertasQuery, createMutation, errorMessage, estoqueQuery } = useEstoque(search)
 
-  const estoque = useMemo(() => (estoqueQuery.data ?? []).filter((item) => (category === 'ALL' ? true : inferCategoria(item) === category)), [category, estoqueQuery.data])
+  const estoque = useMemo(() => (estoqueQuery.data ?? []).filter((item) => (category === 'ALL' ? true : item.categoria === category)), [category, estoqueQuery.data])
   const criticalCount = useMemo(() => (estoqueQuery.data ?? []).filter((item) => getStockTone(item) === 'critical').length, [estoqueQuery.data])
   const warningCount = useMemo(() => (estoqueQuery.data ?? []).filter((item) => getStockTone(item) === 'warning').length, [estoqueQuery.data])
 
-  const handleCreate = async () => {
-    await createMutation.mutateAsync({
+  const openCreateModal = () => {
+    createMutation.reset()
+    setSuccessMessage('')
+    setEntryModalOpen(true)
+  }
+
+  const closeCreateModal = () => {
+    if (!createMutation.isPending) setEntryModalOpen(false)
+  }
+
+  const handleCreate = () => {
+    if (createMutation.isPending) return
+    setSuccessMessage('')
+    createMutation.mutate({
       sku: novoItem.sku,
       nome: novoItem.nome,
+      categoria: novoItem.categoria,
       descricao: novoItem.descricao,
       unidadeMedida: novoItem.unidadeMedida,
       custoMedio: Number(novoItem.custoMedio),
@@ -54,9 +77,13 @@ export function EstoquePage() {
       quantidadeAtual: Number(novoItem.quantidadeAtual),
       estoqueMinimo: Number(novoItem.estoqueMinimo),
       ativo: true,
+    }, {
+      onSuccess: (item) => {
+        setNovoItem({ sku: '', nome: '', categoria: 'PECAS', descricao: '', unidadeMedida: 'UN', custoMedio: '0', precoVenda: '0', quantidadeAtual: '1', estoqueMinimo: '1' })
+        setEntryModalOpen(false)
+        setSuccessMessage(`Item ${item.nome} cadastrado com sucesso.`)
+      },
     })
-    setNovoItem({ sku: '', nome: '', descricao: '', unidadeMedida: 'UN', custoMedio: '0', precoVenda: '0', quantidadeAtual: '1', estoqueMinimo: '1' })
-    setEntryModalOpen(false)
   }
 
   const handleQuickEntry = async () => {
@@ -70,6 +97,53 @@ export function EstoquePage() {
     setEntryObservation('Reposicao de balcao')
   }
 
+  const openExitModal = (item: EstoquePecaResponse) => {
+    adjustMutation.reset()
+    setExitItem(item)
+    setExitQuantity('1')
+    setExitReason('')
+    setExitError('')
+    setSuccessMessage('')
+  }
+
+  const closeExitModal = () => {
+    if (!adjustMutation.isPending) setExitItem(null)
+  }
+
+  const handleExit = async () => {
+    if (!exitItem || adjustMutation.isPending) return
+
+    const quantity = Number(exitQuantity)
+    if (!Number.isFinite(quantity) || quantity < 0.001 || !/^\d+(?:\.\d{1,3})?$/.test(exitQuantity)) {
+      setExitError('Informe uma quantidade positiva com ate 3 casas decimais.')
+      return
+    }
+    if (quantity > exitItem.quantidadeAtual) {
+      setExitError(`Saldo insuficiente. Voce tem ${exitItem.quantidadeAtual} ${exitItem.unidadeMedida} disponiveis.`)
+      return
+    }
+    if (!exitReason.trim()) {
+      setExitError('Informe o motivo da saida.')
+      return
+    }
+    if (exitReason.trim().length > 500) {
+      setExitError('O motivo deve ter no maximo 500 caracteres.')
+      return
+    }
+
+    setExitError('')
+    try {
+      const updatedItem = await adjustMutation.mutateAsync({
+        id: exitItem.id,
+        payload: { tipoMovimento: 'SAIDA', quantidade: quantity, observacao: exitReason.trim(), version: exitItem.version },
+      })
+      setSuccessMessage(`Saida registrada: ${quantity} ${exitItem.unidadeMedida} de ${exitItem.nome}. Saldo atual: ${updatedItem.quantidadeAtual} ${updatedItem.unidadeMedida}.`)
+      setExitItem(null)
+    } catch (error) {
+      setExitError(getApiErrorMessage(error))
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card className="border-[#001F3F]/10 bg-[linear-gradient(135deg,#001F3F_0%,#0B2342_65%,#101828_100%)] text-white">
@@ -79,7 +153,7 @@ export function EstoquePage() {
             <h2 className="mt-3 text-3xl font-semibold">Controle premium com leitura rapida de risco</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Azul marinho para acao, grafite para densidade e alertas semanticos para destacar itens criticos.</p>
           </div>
-          <Button className="bg-white text-[#001F3F] hover:bg-slate-100" onClick={() => setEntryModalOpen(true)}>
+          <Button className="bg-white text-[#001F3F] hover:bg-slate-100" onClick={openCreateModal}>
             <PackagePlus className="mr-2 h-4 w-4" />
             Entrada de mercadoria
           </Button>
@@ -100,7 +174,8 @@ export function EstoquePage() {
         <Card className="border-rose-200 bg-rose-50"><p className="text-sm text-rose-700">Critico</p><p className="mt-3 text-3xl font-semibold text-rose-950">{criticalCount}</p></Card>
       </div>
 
-      {estoqueQuery.isError || alertasQuery.isError || createMutation.isError || adjustMutation.isError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{errorMessage}</div> : null}
+      {estoqueQuery.isError || alertasQuery.isError || createMutation.isError || adjustMutation.isError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{createMutation.isError ? getEstoqueCadastroErrorMessage(createMutation.error) : errorMessage}</div> : null}
+      {successMessage ? <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{successMessage}</div> : null}
 
       <Card className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-4">
@@ -132,12 +207,19 @@ export function EstoquePage() {
                 return (
                   <tr key={item.id} className={`transition hover:bg-slate-50/80 ${tone === 'critical' ? 'gtech-stock-row-critical' : tone === 'warning' ? 'gtech-stock-row-warning' : ''}`}>
                     <td className="px-5 py-4"><div className="font-semibold text-slate-950">{item.nome}</div><div className="mt-1 text-xs text-slate-500">{item.sku} - {item.descricao ?? 'Sem descricao'}</div></td>
-                    <td className="px-5 py-4">{inferCategoria(item)}</td>
+                    <td className="px-5 py-4">{categoryLabels[item.categoria] ?? 'Não informada'}</td>
                     <td className="px-5 py-4"><span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${toneClasses}`}>{item.quantidadeAtual} {item.unidadeMedida}</span></td>
                     <td className="px-5 py-4">{item.estoqueMinimo} {item.unidadeMedida}</td>
                     <td className="px-5 py-4">{formatCurrency(item.custoMedio)}</td>
                     <td className="px-5 py-4">{formatCurrency(item.precoVenda)}</td>
-                    <td className="px-5 py-4"><Button variant="secondary" onClick={() => setSelectedItem(item)}><ArrowDownToLine className="mr-2 h-4 w-4" />Registrar entrada</Button></td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" onClick={() => setSelectedItem(item)}><ArrowDownToLine className="mr-2 h-4 w-4" />Registrar entrada</Button>
+                        <Button variant="secondary" disabled={item.quantidadeAtual <= 0 || adjustMutation.isPending} onClick={() => openExitModal(item)}><ArrowUpFromLine className="mr-2 h-4 w-4" />Registrar saida</Button>
+                        <Button variant="secondary" onClick={() => setHistoryItem(item)}><History className="mr-2 h-4 w-4" />Ver histórico</Button>
+                        <Button variant="secondary" onClick={() => { setSuccessMessage(''); setEditingItem(item) }}><Pencil className="mr-2 h-4 w-4" />Editar peça</Button>
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
@@ -147,20 +229,42 @@ export function EstoquePage() {
         </div>
       </Card>
 
-      <Modal open={entryModalOpen} onClose={() => setEntryModalOpen(false)} title="Entrada de mercadoria" description="Cadastre rapidamente uma nova peca, acessorio ou ferramenta no estoque.">
-        <div className="grid gap-4 md:grid-cols-2">
+      {historyItem ? <HistoricoEstoqueModal key={historyItem.id} item={historyItem} onClose={() => setHistoryItem(null)} /> : null}
+      {editingItem ? <EditarPecaModal key={editingItem.id} item={editingItem} onClose={() => setEditingItem(null)} onSaved={(item) => { setEditingItem(null); setSuccessMessage(`Cadastro de ${item.nome} atualizado com sucesso.`) }} /> : null}
+
+      <Modal open={Boolean(exitItem)} onClose={closeExitModal} title="Registrar saida" description={exitItem ? `Retirar unidades de ${exitItem.nome}.` : undefined} className="max-w-xl">
+        <form onSubmit={(event) => { event.preventDefault(); void handleExit() }} noValidate>
+          <div className="grid gap-4">
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Saldo disponivel: <strong>{exitItem?.quantidadeAtual} {exitItem?.unidadeMedida}</strong></p>
+            <Input autoFocus label="Quantidade de saida" type="number" min="0.001" step="0.001" max={exitItem?.quantidadeAtual} value={exitQuantity} disabled={adjustMutation.isPending} onChange={(event) => { setExitQuantity(event.target.value); setExitError('') }} />
+            <Input label="Motivo da saida" placeholder="Ex.: pecas usadas em um conserto" maxLength={500} value={exitReason} disabled={adjustMutation.isPending} onChange={(event) => { setExitReason(event.target.value); setExitError('') }} />
+            {exitError ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{exitError}</div> : null}
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={closeExitModal} disabled={adjustMutation.isPending}>Cancelar</Button>
+            <Button type="submit" disabled={adjustMutation.isPending || !exitItem}><ArrowUpFromLine className="mr-2 h-4 w-4" />{adjustMutation.isPending ? 'Registrando...' : 'Confirmar saida'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={entryModalOpen} onClose={closeCreateModal} title="Entrada de mercadoria" description="Cadastre rapidamente uma nova peca, acessorio ou ferramenta no estoque.">
+        {createMutation.isError ? <div role="alert" className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{getEstoqueCadastroErrorMessage(createMutation.error)}</div> : null}
+        <fieldset disabled={createMutation.isPending} className="grid gap-4 md:grid-cols-2">
           <Input autoFocus label="SKU" value={novoItem.sku} onChange={(event) => setNovoItem((state) => ({ ...state, sku: event.target.value }))} />
           <Input label="Nome do item" value={novoItem.nome} onChange={(event) => setNovoItem((state) => ({ ...state, nome: event.target.value }))} />
+          <Select label="Categoria" value={novoItem.categoria} onChange={(event) => setNovoItem((state) => ({ ...state, categoria: event.target.value as EstoqueCategoria }))}>
+            {categories.filter((item) => item.value !== 'ALL').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </Select>
           <Input label="Descricao" value={novoItem.descricao} onChange={(event) => setNovoItem((state) => ({ ...state, descricao: event.target.value }))} />
           <Input label="Unidade" value={novoItem.unidadeMedida} onChange={(event) => setNovoItem((state) => ({ ...state, unidadeMedida: event.target.value }))} />
           <Input label="Custo medio" type="number" value={novoItem.custoMedio} onChange={(event) => setNovoItem((state) => ({ ...state, custoMedio: event.target.value }))} />
           <Input label="Preco de venda" type="number" value={novoItem.precoVenda} onChange={(event) => setNovoItem((state) => ({ ...state, precoVenda: event.target.value }))} />
           <Input label="Quantidade inicial" type="number" value={novoItem.quantidadeAtual} onChange={(event) => setNovoItem((state) => ({ ...state, quantidadeAtual: event.target.value }))} />
           <Input label="Estoque minimo" type="number" value={novoItem.estoqueMinimo} onChange={(event) => setNovoItem((state) => ({ ...state, estoqueMinimo: event.target.value }))} />
-        </div>
+        </fieldset>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" onClick={() => setEntryModalOpen(false)}>Cancelar</Button>
-          <Button onClick={() => void handleCreate()} disabled={createMutation.isPending}><PackagePlus className="mr-2 h-4 w-4" />{createMutation.isPending ? 'Salvando...' : 'Salvar item'}</Button>
+          <Button variant="ghost" onClick={closeCreateModal} disabled={createMutation.isPending}>Cancelar</Button>
+          <Button onClick={handleCreate} disabled={createMutation.isPending}><PackagePlus className="mr-2 h-4 w-4" />{createMutation.isPending ? 'Salvando...' : 'Salvar item'}</Button>
         </div>
       </Modal>
 
@@ -168,7 +272,7 @@ export function EstoquePage() {
         <div className="grid gap-4">
           <Card className="border-[#001F3F]/10 bg-slate-50 shadow-none">
             <div className="flex items-start gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#001F3F] text-white">{selectedItem && inferCategoria(selectedItem) === 'FERRAMENTAS' ? <Wrench className="h-5 w-5" /> : <Box className="h-5 w-5" />}</span>
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#001F3F] text-white">{selectedItem?.categoria === 'FERRAMENTAS' ? <Wrench className="h-5 w-5" /> : <Box className="h-5 w-5" />}</span>
               <div>
                 <p className="text-sm text-slate-500">Saldo atual</p>
                 <p className="text-xl font-semibold text-slate-950">{selectedItem?.quantidadeAtual} {selectedItem?.unidadeMedida}</p>

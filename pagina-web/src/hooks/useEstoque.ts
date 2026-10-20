@@ -22,6 +22,7 @@ export function useEstoque(search = '') {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['estoque'] })
       void queryClient.invalidateQueries({ queryKey: ['estoque-alertas'] })
+      void queryClient.invalidateQueries({ queryKey: ['estoque-historico'] })
     },
   })
 
@@ -30,6 +31,7 @@ export function useEstoque(search = '') {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['estoque'] })
       void queryClient.invalidateQueries({ queryKey: ['estoque-alertas'] })
+      void queryClient.invalidateQueries({ queryKey: ['estoque-historico'] })
     },
   })
 

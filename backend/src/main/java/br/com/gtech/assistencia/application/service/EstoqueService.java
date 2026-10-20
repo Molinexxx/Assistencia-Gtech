@@ -10,14 +10,19 @@ import br.com.gtech.assistencia.infrastructure.persistence.MovimentacaoEstoqueRe
 import br.com.gtech.assistencia.web.dto.AjusteEstoqueRequestDTO;
 import br.com.gtech.assistencia.web.dto.EstoquePecaRequestDTO;
 import br.com.gtech.assistencia.web.dto.EstoquePecaResponseDTO;
+import br.com.gtech.assistencia.web.dto.HistoricoEstoqueResponseDTO;
+import br.com.gtech.assistencia.web.dto.MovimentacaoEstoqueResponseDTO;
 import br.com.gtech.assistencia.web.exception.BusinessException;
 import br.com.gtech.assistencia.web.exception.ResourceConflictException;
 import br.com.gtech.assistencia.web.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class EstoqueService {
@@ -62,10 +67,14 @@ public class EstoqueService {
     }
 
     @Transactional(readOnly = true)
-    public List<EstoquePecaResponseDTO> listar(String sku, String nome) {
+    public List<EstoquePecaResponseDTO> listar(String sku, String nome, String busca) {
+        String termo = busca == null ? "" : busca.trim().toLowerCase(Locale.ROOT);
         return estoquePecaRepository.findAll().stream()
                 .filter(peca -> sku == null || sku.isBlank() || peca.getSku().equalsIgnoreCase(sku))
                 .filter(peca -> nome == null || nome.isBlank() || peca.getNome().toLowerCase().contains(nome.toLowerCase()))
+                .filter(peca -> termo.isEmpty()
+                        || peca.getNome().toLowerCase(Locale.ROOT).contains(termo)
+                        || peca.getSku().toLowerCase(Locale.ROOT).contains(termo))
                 .map(this::toResponse)
                 .toList();
     }
@@ -85,13 +94,18 @@ public class EstoqueService {
 
         validarVersion(entity.getVersion(), request.getVersion());
 
+        if (request.getQuantidadeAtual() == null
+                || entity.getQuantidadeAtual().compareTo(request.getQuantidadeAtual()) != 0) {
+            throw new BusinessException("Para alterar a quantidade, registre uma entrada ou saida de estoque.");
+        }
+
         if (!entity.getSku().equalsIgnoreCase(request.getSku())
                 && estoquePecaRepository.existsBySkuIgnoreCase(request.getSku())) {
             throw new ResourceConflictException("Ja existe outra peca cadastrada com este SKU.");
         }
 
         preencher(entity, request);
-        return toResponse(estoquePecaRepository.save(entity));
+        return toResponse(estoquePecaRepository.saveAndFlush(entity));
     }
 
     @Transactional
@@ -111,6 +125,31 @@ public class EstoqueService {
         return toResponse(salvo);
     }
 
+    @Transactional(readOnly = true)
+    public HistoricoEstoqueResponseDTO listarHistorico(Long id, int pagina) {
+        if (pagina < 0) {
+            throw new BusinessException("A pagina do historico nao pode ser negativa.");
+        }
+        if (!estoquePecaRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Peca de estoque nao encontrada.");
+        }
+
+        var registros = movimentacaoEstoqueRepository.findByEstoquePeca_Id(
+                id, PageRequest.of(pagina, 20, Sort.by(Sort.Direction.DESC, "id"))
+        );
+        var movimentacoes = registros.getContent().stream()
+                .map(movimento -> new MovimentacaoEstoqueResponseDTO(
+                        movimento.getId(), movimento.getTipoMovimento(), movimento.getQuantidade(),
+                        movimento.getSaldoAnterior(), movimento.getSaldoPosterior(), movimento.getObservacao(),
+                        movimento.getDataMovimento(), movimento.getUsuario().getNome()
+                ))
+                .toList();
+
+        return new HistoricoEstoqueResponseDTO(
+                movimentacoes, registros.getNumber(), registros.getTotalPages(), registros.getTotalElements()
+        );
+    }
+
     private BigDecimal calcularNovoSaldo(EstoquePeca entity, AjusteEstoqueRequestDTO request) {
         BigDecimal quantidade = request.getQuantidade();
         return switch (request.getTipoMovimento()) {
@@ -128,6 +167,7 @@ public class EstoqueService {
     private void preencher(EstoquePeca entity, EstoquePecaRequestDTO request) {
         entity.setSku(request.getSku());
         entity.setNome(request.getNome());
+        entity.setCategoria(request.getCategoria());
         entity.setDescricao(request.getDescricao());
         entity.setUnidadeMedida(request.getUnidadeMedida());
         entity.setCustoMedio(request.getCustoMedio());
@@ -169,6 +209,7 @@ public class EstoqueService {
         response.setId(entity.getId());
         response.setSku(entity.getSku());
         response.setNome(entity.getNome());
+        response.setCategoria(entity.getCategoria());
         response.setDescricao(entity.getDescricao());
         response.setUnidadeMedida(entity.getUnidadeMedida());
         response.setCustoMedio(entity.getCustoMedio());

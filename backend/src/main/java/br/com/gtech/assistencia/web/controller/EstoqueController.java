@@ -4,6 +4,7 @@ import br.com.gtech.assistencia.application.service.EstoqueService;
 import br.com.gtech.assistencia.web.dto.AjusteEstoqueRequestDTO;
 import br.com.gtech.assistencia.web.dto.EstoquePecaRequestDTO;
 import br.com.gtech.assistencia.web.dto.EstoquePecaResponseDTO;
+import br.com.gtech.assistencia.web.dto.HistoricoEstoqueResponseDTO;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -51,9 +52,10 @@ public class EstoqueController {
     @PreAuthorize("hasAnyRole('ADMIN','ATENDENTE','TECNICO')")
     public ResponseEntity<List<EstoquePecaResponseDTO>> listar(
             @RequestParam(required = false) String sku,
-            @RequestParam(required = false) String nome
+            @RequestParam(required = false) String nome,
+            @RequestParam(required = false) String busca
     ) {
-        return ResponseEntity.ok(estoqueService.listar(sku, nome));
+        return ResponseEntity.ok(estoqueService.listar(sku, nome, busca));
     }
 
     @PutMapping("/pecas/{id}")
@@ -72,6 +74,15 @@ public class EstoqueController {
             @Valid @RequestBody AjusteEstoqueRequestDTO request
     ) {
         return ResponseEntity.ok(estoqueService.ajustar(id, request));
+    }
+
+    @GetMapping("/pecas/{id}/movimentacoes")
+    @PreAuthorize("hasAnyRole('ADMIN','ATENDENTE','TECNICO')")
+    public ResponseEntity<HistoricoEstoqueResponseDTO> listarHistorico(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int pagina
+    ) {
+        return ResponseEntity.ok(estoqueService.listarHistorico(id, pagina));
     }
 
     @GetMapping("/alertas/minimo")
